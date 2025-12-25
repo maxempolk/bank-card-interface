@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import clientPromise from '@/lib/mongodb'
 import type { User } from '@/types/user'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: NextRequest,
@@ -16,6 +17,7 @@ export async function GET(
       )
     }
 
+    const clientPromise = (await import('@/lib/mongodb')).default
     const client = await clientPromise
     const db = client.db('bank_card_app')
     const users = db.collection('users')

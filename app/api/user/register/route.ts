@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import clientPromise from '@/lib/mongodb'
 import type { UserRegistrationRequest, UserRegistrationResponse } from '@/types/user'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const clientPromise = (await import('@/lib/mongodb')).default
     const client = await clientPromise
     const db = client.db('bank_card_app')
     const users = db.collection('users')
