@@ -2,11 +2,11 @@
 
 import { BalanceCard } from "@/components/balance-card"
 import { RegistrationForm } from "@/components/registration-form"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { getTransactionDescription } from "@/lib/transaction-utils"
 import { useSearchParams } from "next/navigation"
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams()
   const isChangingCard = searchParams.get("change-card") === "true"
 
@@ -210,5 +210,20 @@ export default function Home() {
         />
       </div>
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+          <p className="mt-4 text-muted-foreground">Загрузка...</p>
+        </div>
+      </main>
+    }>
+      <HomeContent />
+    </Suspense>
   )
 }
