@@ -16,6 +16,10 @@ function getClientPromise(): Promise<MongoClient> {
   // Railway может использовать MONGO_URL, а не MONGODB_URI
   const uri = process.env.MONGODB_URI || process.env.MONGO_URL
 
+  console.log('All env variables:', Object.keys(process.env));
+  console.log('MONGODB_URI:', process.env.MONGODB_URI);
+  console.log('MONGO_URL:', process.env.MONGO_URL);
+
   if (!uri) {
     throw new Error('MONGODB_URI or MONGO_URL is not defined in environment variables')
   }
