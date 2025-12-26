@@ -13,11 +13,12 @@ function getClientPromise(): Promise<MongoClient> {
     return cachedPromise
   }
 
-  if (!process.env.MONGODB_URI) {
-    throw new Error('Please add your MongoDB URI to .env.local')
-  }
+  // Railway может использовать MONGO_URL, а не MONGODB_URI
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URL
 
-  const uri = process.env.MONGODB_URI
+  if (!uri) {
+    throw new Error('MONGODB_URI or MONGO_URL is not defined in environment variables')
+  }
 
   if (process.env.NODE_ENV === 'development') {
     // В режиме разработки используем глобальную переменную для сохранения соединения
@@ -39,7 +40,12 @@ function getClientPromise(): Promise<MongoClient> {
 const clientPromise = new Proxy({} as Promise<MongoClient>, {
   get(target, prop) {
     const promise = getClientPromise()
-    return (promise as any)[prop]
+    const value = (promise as any)[prop]
+    // Bind methods to the actual promise to maintain the correct 'this' context
+    if (typeof value === 'function') {
+      return value.bind(promise)
+    }
+    return value
   }
 })
 
