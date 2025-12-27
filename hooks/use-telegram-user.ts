@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { initializeTelegramWebApp } from '@/services/telegram'
-import { fetchUser, registerUser } from '@/services/api'
+import { fetchUser } from '@/services/api'
 
 interface UseTelegramUserResult {
   telegramUserId: string
@@ -35,14 +35,11 @@ export function useTelegramUser(): UseTelegramUserResult {
   useEffect(() => {
     document.documentElement.classList.add('dark')
 
-    const { userId, isTestUser } = initializeTelegramWebApp()
+    const { userId } = initializeTelegramWebApp()
     setTelegramUserId(userId)
 
-    if (isTestUser) {
-      setIsCheckingUser(false)
-    } else {
-      checkUserRegistration(userId)
-    }
+    // Проверяем регистрацию для всех пользователей
+    checkUserRegistration(userId)
   }, [checkUserRegistration])
 
   const handleRegistrationComplete = useCallback((newCardNumber: string) => {
