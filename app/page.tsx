@@ -65,25 +65,42 @@ function HomeContent() {
   useEffect(() => {
     document.documentElement.classList.add("dark")
 
+    console.log('[DEBUG] Starting Telegram WebApp initialization...')
+    console.log('[DEBUG] window type:', typeof window)
+    console.log('[DEBUG] window.Telegram exists:', typeof window !== 'undefined' ? !!window.Telegram : 'N/A')
+    console.log('[DEBUG] window.Telegram?.WebApp exists:', typeof window !== 'undefined' && window.Telegram ? !!window.Telegram.WebApp : 'N/A')
+
     // Проверяем, запущено ли приложение в Telegram WebApp
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp
+      console.log('[DEBUG] Telegram WebApp detected!')
+      console.log('[DEBUG] WebApp object:', tg)
+      console.log('[DEBUG] initDataUnsafe:', tg.initDataUnsafe)
+      console.log('[DEBUG] initData:', tg.initData)
+
       tg.ready()
 
       const userId = tg.initDataUnsafe?.user?.id?.toString() || ""
+      console.log('[DEBUG] Extracted userId:', userId)
+      console.log('[DEBUG] User object:', tg.initDataUnsafe?.user)
 
       if (userId) {
+        console.log('[DEBUG] Using REAL Telegram user ID:', userId)
         setTelegramUserId(userId)
         checkUserRegistration(userId)
       } else {
         // Для тестирования без Telegram
+        console.warn('[WARNING] No userId found in initDataUnsafe, creating TEST user')
         const testUserId = "test_user_" + Date.now()
+        console.log('[DEBUG] Created TEST user ID:', testUserId)
         setTelegramUserId(testUserId)
         setIsCheckingUser(false)
       }
     } else {
       // Для тестирования без Telegram
+      console.warn('[WARNING] Telegram WebApp not detected, creating TEST user')
       const testUserId = "test_user_" + Date.now()
+      console.log('[DEBUG] Created TEST user ID:', testUserId)
       setTelegramUserId(testUserId)
       setIsCheckingUser(false)
     }

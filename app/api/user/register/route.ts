@@ -7,6 +7,12 @@ export async function POST(request: NextRequest) {
   try {
     const { telegram_user_id, card_number }: UserRegistrationRequest = await request.json()
 
+    console.log('[API /user/register] Received registration request')
+    console.log('[API /user/register] telegram_user_id:', telegram_user_id)
+    console.log('[API /user/register] telegram_user_id type:', typeof telegram_user_id)
+    console.log('[API /user/register] Is test user?:', telegram_user_id?.startsWith('test_user_'))
+    console.log('[API /user/register] card_number:', card_number)
+
     if (!telegram_user_id || !card_number) {
       return NextResponse.json<UserRegistrationResponse>(
         { success: false, error: 'Telegram user ID and card number are required' },
@@ -35,6 +41,9 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       // Обновляем существующего пользователя
+      console.log('[API /user/register] User already exists, updating...')
+      console.log('[API /user/register] Existing user data:', existingUser)
+
       await users.updateOne(
         { telegram_user_id },
         {
@@ -44,6 +53,8 @@ export async function POST(request: NextRequest) {
           },
         }
       )
+
+      console.log('[API /user/register] User updated successfully')
 
       return NextResponse.json<UserRegistrationResponse>({
         success: true,
@@ -55,12 +66,16 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // Создаем нового пользователя
+      console.log('[API /user/register] Creating new user...')
+
       await users.insertOne({
         telegram_user_id,
         card_number: cardNumberClean,
         created_at: now,
         updated_at: now,
       })
+
+      console.log('[API /user/register] New user created successfully')
 
       return NextResponse.json<UserRegistrationResponse>({
         success: true,
