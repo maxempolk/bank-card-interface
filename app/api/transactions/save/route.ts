@@ -38,9 +38,15 @@ export async function POST(request: NextRequest) {
         { transaction_hash: 1 },
         { unique: true, background: true, name: 'transaction_hash_unique' }
       )
-    } catch (indexError) {
-      // Indexes might already exist, that's fine
-      console.log('[transactions/save] Index creation note:', indexError)
+    } catch (indexError: unknown) {
+      // Log but don't fail - if index exists with same options, that's fine
+      // If there are duplicates preventing unique index creation, log error
+      const errorMessage = indexError instanceof Error ? indexError.message : String(indexError)
+      if (errorMessage.includes('duplicate key') || errorMessage.includes('E11000')) {
+        console.error('[transactions/save] Cannot create unique index - duplicates exist in database:', errorMessage)
+      } else {
+        console.log('[transactions/save] Index creation note:', errorMessage)
+      }
     }
 
     const now = new Date()
@@ -48,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Prepare bulk operations for efficient batch insert
     const bulkOps = transactions.map((tx) => {
       const txDate = new Date(tx.date)
-      const hash = generateTransactionHash(txDate, tx.amount, tx.type, tx.description)
+      const hash = generateTransactionHash(telegram_user_id, txDate, tx.amount, tx.type, tx.description)
 
       const doc: StoredTransaction = {
         transaction_hash: hash,
