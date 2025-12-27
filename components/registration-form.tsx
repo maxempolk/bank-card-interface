@@ -1,9 +1,13 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { Card } from "@/components/ui/card"
-import { Loader2, ArrowLeft } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2, ArrowLeft } from 'lucide-react'
+import { Card } from '@/components/ui/card'
+import { DNBLogo } from '@/components/ui/dnb-logo'
+import { registerUser } from '@/services/api'
+import { formatCardNumber, cleanCardNumber } from '@/utils/formatters'
+import { CARD_NUMBER } from '@/constants'
 
 interface RegistrationFormProps {
   onComplete: (cardNumber: string) => void
@@ -11,76 +15,55 @@ interface RegistrationFormProps {
   isChangingCard?: boolean
 }
 
-export function RegistrationForm({ onComplete, telegramUserId, isChangingCard = false }: RegistrationFormProps) {
+export function RegistrationForm({
+  onComplete,
+  telegramUserId,
+  isChangingCard = false,
+}: RegistrationFormProps) {
   const router = useRouter()
-  const [cardNumber, setCardNumber] = useState("")
+  const [cardNumber, setCardNumber] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
 
-  const formatCardNumber = (value: string) => {
-    // Убираем все нецифровые символы
-    const digits = value.replace(/\D/g, "")
-
-    // Ограничиваем до 16 цифр
-    const limited = digits.slice(0, 16)
-
-    // Форматируем группами по 4 цифры
-    const formatted = limited.match(/.{1,4}/g)?.join(" ") || limited
-
-    return formatted
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCardNumber(e.target.value)
     setCardNumber(formatted)
-    setError("")
-  }
+    setError('')
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
 
-    const cleanCardNumber = cardNumber.replace(/\s/g, "")
+      const cleanNumber = cleanCardNumber(cardNumber)
 
-    // Валидация
-    if (cleanCardNumber.length < 11) {
-      setError("Номер карты должен содержать минимум 11 цифр")
-      return
-    }
+      if (cleanNumber.length < CARD_NUMBER.MIN_LENGTH) {
+        setError(`Номер карты должен содержать минимум ${CARD_NUMBER.MIN_LENGTH} цифр`)
+        return
+      }
 
-    setIsSubmitting(true)
-    setError("")
+      setIsSubmitting(true)
+      setError('')
 
-    try {
-      const response = await fetch("/api/user/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          telegram_user_id: telegramUserId,
-          card_number: cleanCardNumber,
-        }),
-      })
+      const result = await registerUser(telegramUserId, cleanNumber)
 
-      const data = await response.json()
-
-      if (data.success) {
+      if (result.success) {
         if (isChangingCard) {
-          // Перенаправляем на главную страницу после смены карты
-          router.push("/")
+          router.push('/')
         } else {
-          onComplete(cleanCardNumber)
+          onComplete(cleanNumber)
         }
       } else {
-        setError(data.error || "Произошла ошибка при регистрации")
+        setError(result.error || 'Произошла ошибка при регистрации')
       }
-    } catch (err) {
-      console.error("Registration error:", err)
-      setError("Ошибка соединения с сервером")
-    } finally {
+
       setIsSubmitting(false)
-    }
-  }
+    },
+    [cardNumber, telegramUserId, isChangingCard, router, onComplete]
+  )
+
+  const cleanNumber = cleanCardNumber(cardNumber)
+  const isValid = cleanNumber.length >= CARD_NUMBER.MIN_LENGTH
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
@@ -88,28 +71,25 @@ export function RegistrationForm({ onComplete, telegramUserId, isChangingCard = 
         <div className="p-8">
           {isChangingCard && (
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push('/')}
               className="mb-6 flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
             >
               <ArrowLeft className="h-5 w-5" />
               Назад
             </button>
           )}
+
           <div className="mb-8 text-center">
             <div className="mb-4 flex items-center justify-center">
-              <svg width="64" height="40" viewBox="0 0 64 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <text x="8" y="30" fontFamily="Arial, sans-serif" fontSize="24" fontWeight="bold" fill="currentColor" className="text-accent">
-                  DNB
-                </text>
-              </svg>
+              <DNBLogo size="md" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {isChangingCard ? "Смена номера карты" : "Добро пожаловать"}
+              {isChangingCard ? 'Смена номера карты' : 'Добро пожаловать'}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {isChangingCard
-                ? "Введите новый номер вашей банковской карты"
-                : "Введите номер вашей банковской карты для начала работы"}
+                ? 'Введите новый номер вашей банковской карты'
+                : 'Введите номер вашей банковской карты для начала работы'}
             </p>
           </div>
 
@@ -129,14 +109,12 @@ export function RegistrationForm({ onComplete, telegramUserId, isChangingCard = 
                 className="w-full rounded-lg border border-input bg-background px-4 py-3 font-mono text-lg tracking-wider transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
                 autoFocus
               />
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
 
             <button
               type="submit"
-              disabled={isSubmitting || cardNumber.replace(/\s/g, "").length < 11}
+              disabled={isSubmitting || !isValid}
               className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-primary-foreground transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? (
@@ -145,7 +123,7 @@ export function RegistrationForm({ onComplete, telegramUserId, isChangingCard = 
                   Регистрация...
                 </span>
               ) : (
-                "Продолжить"
+                'Продолжить'
               )}
             </button>
           </form>
