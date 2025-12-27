@@ -36,6 +36,7 @@ export function useBankData(
   const abortControllerRef = useRef<AbortController | null>(null)
   const cardNumberRef = useRef(initialCardNumber)
   const userIdRef = useRef(telegramUserId)
+  const hasInitializedRef = useRef(false)
 
   useEffect(() => {
     cardNumberRef.current = initialCardNumber
@@ -149,27 +150,29 @@ export function useBankData(
     }
   }, [])
 
-  // Initial load
+  // Initial load - runs only once
   useEffect(() => {
+    if (hasInitializedRef.current) return
+    if (!initialCardNumber || !telegramUserId) return
+
+    hasInitializedRef.current = true
+
     const init = async () => {
       // First load from DB
-      if (telegramUserId) {
-        const dbResult = await loadFromDatabase(0)
-        if (dbResult) {
-          setTransactions(dbResult.transactions)
-          setTotalTransactions(dbResult.total)
-          setHasMore(dbResult.hasMore)
-        }
+      const dbResult = await loadFromDatabase(0)
+      if (dbResult) {
+        setTransactions(dbResult.transactions)
+        setTotalTransactions(dbResult.total)
+        setHasMore(dbResult.hasMore)
       }
 
       // Then refresh from DNB
-      if (initialCardNumber) {
-        refresh(initialCardNumber)
-      }
+      refresh(initialCardNumber)
     }
 
     init()
-  }, [initialCardNumber, telegramUserId, loadFromDatabase, refresh])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCardNumber, telegramUserId])
 
   return {
     balance,

@@ -8,6 +8,34 @@ import type {
 
 export const dynamic = 'force-dynamic'
 
+// Track if indexes have been created (per process)
+let indexesCreated = false
+
+async function ensureIndexes(collection: import('mongodb').Collection<StoredTransaction>) {
+  if (indexesCreated) return
+
+  try {
+    await collection.createIndex(
+      { telegram_user_id: 1, date: -1 },
+      { background: true, name: 'user_date_idx' }
+    )
+    await collection.createIndex(
+      { transaction_hash: 1 },
+      { unique: true, background: true, name: 'transaction_hash_unique' }
+    )
+    indexesCreated = true
+  } catch (indexError: unknown) {
+    const errorMessage = indexError instanceof Error ? indexError.message : String(indexError)
+    if (errorMessage.includes('duplicate key') || errorMessage.includes('E11000')) {
+      console.error('[transactions/save] Cannot create unique index - duplicates exist in database:', errorMessage)
+    } else if (!errorMessage.includes('already exists')) {
+      console.log('[transactions/save] Index creation note:', errorMessage)
+    }
+    // Mark as created even if it already exists
+    indexesCreated = true
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const {
@@ -28,26 +56,8 @@ export async function POST(request: NextRequest) {
     const db = client.db('bank_card_app')
     const collection = db.collection<StoredTransaction>('transactions')
 
-    // Ensure indexes exist (only creates if they don't exist, safe to call multiple times)
-    try {
-      await collection.createIndex(
-        { telegram_user_id: 1, date: -1 },
-        { background: true, name: 'user_date_idx' }
-      )
-      await collection.createIndex(
-        { transaction_hash: 1 },
-        { unique: true, background: true, name: 'transaction_hash_unique' }
-      )
-    } catch (indexError: unknown) {
-      // Log but don't fail - if index exists with same options, that's fine
-      // If there are duplicates preventing unique index creation, log error
-      const errorMessage = indexError instanceof Error ? indexError.message : String(indexError)
-      if (errorMessage.includes('duplicate key') || errorMessage.includes('E11000')) {
-        console.error('[transactions/save] Cannot create unique index - duplicates exist in database:', errorMessage)
-      } else {
-        console.log('[transactions/save] Index creation note:', errorMessage)
-      }
-    }
+    // Ensure indexes exist before any write operations
+    await ensureIndexes(collection)
 
     const now = new Date()
 
