@@ -17,6 +17,10 @@ interface BalanceCardProps {
   cardNumber: string
   onRefresh?: () => Promise<void>
   isRefreshing?: boolean
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  totalTransactions?: number
+  onLoadMore?: () => void
 }
 
 export function BalanceCard({
@@ -26,6 +30,10 @@ export function BalanceCard({
   cardNumber,
   onRefresh,
   isRefreshing = false,
+  hasMore = false,
+  isLoadingMore = false,
+  totalTransactions,
+  onLoadMore,
 }: BalanceCardProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -52,7 +60,13 @@ export function BalanceCard({
         </div>
       </Card>
 
-      <TransactionList transactions={transactions} />
+      <TransactionList
+        transactions={transactions}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        totalCount={totalTransactions}
+        onLoadMore={onLoadMore}
+      />
     </div>
   )
 }

@@ -1,4 +1,9 @@
 db.users.find()
 show collections
+db
+use bank_card_app
+show dbs
+db.users.find()
+show collections
 use bank_card_app
 show dbs

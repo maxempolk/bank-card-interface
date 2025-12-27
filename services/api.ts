@@ -1,5 +1,9 @@
 import type { User } from '@/types/user'
 import type { Transaction } from '@/types/transaction'
+import type {
+  PaginatedTransactionsResponse,
+  SaveTransactionsResponse,
+} from '@/types/stored-transaction'
 import { getTransactionDescription } from '@/lib/transaction-utils'
 
 interface BalanceResponse {
@@ -117,5 +121,101 @@ export async function fetchBankData(
     fetchBalance(cardNumber, signal),
     fetchTransactions(cardNumber, signal),
   ])
+  return { balance, transactions }
+}
+
+/**
+ * Save transactions to MongoDB for persistence
+ */
+export async function saveTransactions(
+  telegramUserId: string,
+  accountNumber: string,
+  transactions: Transaction[]
+): Promise<SaveTransactionsResponse> {
+  try {
+    const response = await fetch('/api/transactions/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        telegram_user_id: telegramUserId,
+        account_number: accountNumber,
+        transactions: transactions.map((tx) => ({
+          amount: tx.amount,
+          date: tx.date instanceof Date ? tx.date.toISOString() : tx.date,
+          type: tx.type,
+          description: tx.description,
+        })),
+      }),
+    })
+
+    if (!response.ok) {
+      return { success: false, inserted: 0, duplicates: 0, error: 'Failed to save' }
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error('[API] Error saving transactions:', error)
+    return { success: false, inserted: 0, duplicates: 0, error: 'Network error' }
+  }
+}
+
+/**
+ * Fetch paginated transactions from MongoDB
+ */
+export async function fetchStoredTransactions(
+  telegramUserId: string,
+  page: number = 0,
+  pageSize: number = 10,
+  signal?: AbortSignal
+): Promise<PaginatedTransactionsResponse | null> {
+  try {
+    const url = `/api/transactions/${telegramUserId}?page=${page}&pageSize=${pageSize}`
+    const response = await fetch(url, { signal })
+
+    if (!response.ok) return null
+
+    const data: PaginatedTransactionsResponse = await response.json()
+
+    // Convert date strings back to Date objects
+    data.transactions = data.transactions.map((tx) => ({
+      ...tx,
+      date: new Date(tx.date),
+    }))
+
+    return data
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') return null
+    console.error('[API] Error fetching stored transactions:', error)
+    return null
+  }
+}
+
+/**
+ * Fetch bank data and save transactions to MongoDB
+ */
+export async function fetchBankDataWithPersistence(
+  cardNumber: string,
+  telegramUserId: string,
+  signal?: AbortSignal
+): Promise<{ balance: number | null; transactions: Transaction[] }> {
+  const [balance, transactions] = await Promise.all([
+    fetchBalance(cardNumber, signal),
+    fetchTransactions(cardNumber, signal),
+  ])
+
+  // Save fetched transactions to MongoDB (fire-and-forget)
+  if (transactions.length > 0 && telegramUserId) {
+    const accountNumber = getAccountNumber(cardNumber)
+    saveTransactions(telegramUserId, accountNumber, transactions)
+      .then((result) => {
+        if (result.success) {
+          console.log(
+            `[API] Saved ${result.inserted} transactions, ${result.duplicates} duplicates`
+          )
+        }
+      })
+      .catch((err) => console.error('[API] Failed to save transactions:', err))
+  }
+
   return { balance, transactions }
 }

@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: { telegram_user_id: string } }
 ) {
   try {
-    const { telegram_user_id } = params
+    const { telegram_user_id } = await params
 
     if (!telegram_user_id) {
       return NextResponse.json(

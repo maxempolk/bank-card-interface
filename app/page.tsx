@@ -20,9 +20,17 @@ function HomeContent() {
     handleRegistrationComplete,
   } = useTelegramUser()
 
-  const { balance, lastUpdate, transactions, isLoading, refresh } = useBankData(
-    isRegistered ? cardNumber : ''
-  )
+  const {
+    balance,
+    lastUpdate,
+    transactions,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    totalTransactions,
+    refresh,
+    loadMore,
+  } = useBankData(isRegistered ? cardNumber : '', telegramUserId)
 
   const handleComplete = (newCardNumber: string) => {
     handleRegistrationComplete(newCardNumber)
@@ -57,6 +65,10 @@ function HomeContent() {
           cardNumber={cardNumber}
           onRefresh={refresh}
           isRefreshing={isLoading}
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
+          totalTransactions={totalTransactions}
+          onLoadMore={loadMore}
         />
       </div>
     </main>
