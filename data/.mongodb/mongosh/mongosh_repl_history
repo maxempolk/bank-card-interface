@@ -1,3 +1,6 @@
+db.transactions.find()
+show collections
+dbs
 db.users.find()
 show collections
 db

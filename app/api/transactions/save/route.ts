@@ -28,15 +28,25 @@ export async function POST(request: NextRequest) {
     const db = client.db('bank_card_app')
     const collection = db.collection<StoredTransaction>('transactions')
 
-    // Ensure indexes exist (idempotent)
-    await collection.createIndex({ telegram_user_id: 1, date: -1 })
-    await collection.createIndex({ transaction_hash: 1 }, { unique: true })
+    // Ensure indexes exist (only creates if they don't exist, safe to call multiple times)
+    try {
+      await collection.createIndex(
+        { telegram_user_id: 1, date: -1 },
+        { background: true, name: 'user_date_idx' }
+      )
+      await collection.createIndex(
+        { transaction_hash: 1 },
+        { unique: true, background: true, name: 'transaction_hash_unique' }
+      )
+    } catch (indexError) {
+      // Indexes might already exist, that's fine
+      console.log('[transactions/save] Index creation note:', indexError)
+    }
 
     const now = new Date()
-    let inserted = 0
-    let duplicates = 0
 
-    for (const tx of transactions) {
+    // Prepare bulk operations for efficient batch insert
+    const bulkOps = transactions.map((tx) => {
       const txDate = new Date(tx.date)
       const hash = generateTransactionHash(txDate, tx.amount, tx.type, tx.description)
 
@@ -52,18 +62,18 @@ export async function POST(request: NextRequest) {
         created_at: now,
       }
 
-      try {
-        await collection.insertOne(doc)
-        inserted++
-      } catch (error: unknown) {
-        // Duplicate key error (E11000) means transaction already exists
-        if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
-          duplicates++
-        } else {
-          throw error
-        }
+      return {
+        insertOne: {
+          document: doc,
+        },
       }
-    }
+    })
+
+    // Use bulkWrite with ordered: false to continue on duplicate key errors
+    const result = await collection.bulkWrite(bulkOps, { ordered: false })
+
+    const inserted = result.insertedCount
+    const duplicates = transactions.length - inserted
 
     console.log(
       `[transactions/save] Saved ${inserted} new, ${duplicates} duplicates for user ${telegram_user_id}`
