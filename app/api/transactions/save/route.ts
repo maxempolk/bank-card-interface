@@ -8,38 +8,13 @@ import type {
 
 export const dynamic = 'force-dynamic'
 
-// Use Promise to prevent race condition - all concurrent requests wait for the same Promise
-let indexesPromise: Promise<void> | null = null
-
-async function ensureIndexes(collection: import('mongodb').Collection<StoredTransaction>) {
-  if (!indexesPromise) {
-    indexesPromise = (async () => {
-      try {
-        await collection.createIndex(
-          { telegram_user_id: 1, date: -1 },
-          { background: true, name: 'user_date_idx' }
-        )
-        await collection.createIndex(
-          { transaction_hash: 1 },
-          { unique: true, background: true, name: 'transaction_hash_unique' }
-        )
-      } catch (indexError: unknown) {
-        const errorMessage = indexError instanceof Error ? indexError.message : String(indexError)
-        if (errorMessage.includes('duplicate key') || errorMessage.includes('E11000')) {
-          console.error('[transactions/save] Cannot create unique index - duplicates exist in database:', errorMessage)
-        } else if (!errorMessage.includes('already exists')) {
-          console.log('[transactions/save] Index creation note:', errorMessage)
-        }
-      }
-    })()
-  }
-
-  // All concurrent requests wait for the same Promise to resolve
-  await indexesPromise
-}
-
 export async function POST(request: NextRequest) {
   try {
+    const clientPromise = (await import('@/lib/mongodb')).default
+    const client = await clientPromise
+    const db = client.db('bank_card_app')
+    const collection = await db.collection<StoredTransaction>('transactions')
+
     const {
       telegram_user_id,
       account_number,
@@ -52,14 +27,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const clientPromise = (await import('@/lib/mongodb')).default
-    const client = await clientPromise
-    const db = client.db('bank_card_app')
-    const collection = db.collection<StoredTransaction>('transactions')
-
-    // Ensure indexes exist before any write operations
-    await ensureIndexes(collection)
 
     const now = new Date()
 

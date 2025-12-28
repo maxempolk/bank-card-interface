@@ -1,3 +1,4 @@
+import { StoredTransaction } from '@/types/stored-transaction'
 import { MongoClient } from 'mongodb'
 
 const options = {}
@@ -8,7 +9,30 @@ const globalWithMongo = global as typeof globalThis & {
   _mongoClientPromise?: Promise<MongoClient>
 }
 
+async function ensureIndexes() {
+  const clientPromise = (await import('@/lib/mongodb')).default
+  const client = await clientPromise
+  const db = client.db('bank_card_app')
+  const collection = await db.collection<StoredTransaction>('transactions')
+
+  try {
+    await collection.createIndex(
+      { telegram_user_id: 1, date: -1 },
+      { background: true, name: 'user_date_idx' }
+    )
+    await collection.createIndex(
+      { transaction_hash: 1 },
+      { unique: true, background: true, name: 'transaction_hash_unique' }
+    )
+    console.log('[transactions/save] Indexes created successfully')
+  } catch (error) {
+    console.error('❌ Error creating indexes:', error);
+    throw error;
+  }
+}
+
 function getClientPromise(): Promise<MongoClient> {
+  ensureIndexes()
   if (cachedPromise) {
     return cachedPromise
   }
